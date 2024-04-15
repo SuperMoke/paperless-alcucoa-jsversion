@@ -112,13 +112,10 @@ export default function UserHomepage() {
         setUserID(userId);
         fetchUserFiles(userId);
       } else {
-        // User is signed out
         setUserID(null);
-        setUserFiles([]); // Clear user files when user signs out
+        setUserFiles([]);
       }
     });
-
-    // Clean up the listener when the component unmounts
     return () => unsubscribe();
   }, []);
 
