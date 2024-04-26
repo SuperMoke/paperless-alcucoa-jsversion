@@ -1,5 +1,5 @@
 "use client";
-import React, { useRef } from "react";
+import React, { useState } from "react";
 import NavbarComponent from "../navbar";
 import {
   Card,
@@ -26,6 +26,34 @@ export default function AdminForms() {
   const [activeStep, setActiveStep] = React.useState(0);
   const [isLastStep, setIsLastStep] = React.useState(false);
   const [isFirstStep, setIsFirstStep] = React.useState(false);
+  const [academicweightedmean, setAcademicWeightedMean] = useState(0);
+  const [recruitmentweightedmean, setRecruitmentWeightedMean] = useState(0);
+  const [rankingweightedmean, setRankingWeightedMean] = useState(0);
+  const [facultyloadingweightedmean, setFacultyLoadingWeightedMean] =
+    useState(0);
+  const [
+    professionalandscholarlyweightedmean,
+    setProfessionalAndScholarlyWeightedMean,
+  ] = useState(0);
+
+  const [
+    performanceevaluationweightedmean,
+    setPerformanceEvaluationWeightedMean,
+  ] = useState(0);
+
+  const [facultydevelopmentweightedmean, setFacultyDevelopmentWeightedMean] =
+    useState(0);
+
+  const [
+    facultyrelationshipsweightedmean,
+    setFacultyRelationshipsWeightedMean,
+  ] = useState(0);
+
+  const [
+    salariesandfringebenefitsweightedmean,
+    setSalariesAndFringeBenefitsWeightedMean,
+  ] = useState(0);
+
   const handleNext = () => {
     if (!isLastStep) {
       setActiveStep((cur) => cur + 1);
@@ -44,41 +72,83 @@ export default function AdminForms() {
   const TABLE_ROWS = [
     {
       SUB_AREAS: "Academic Qualification and Teaching Experiences",
-      RATING: "",
+      RATING: academicweightedmean,
     },
     {
       SUB_AREAS: "Recruitment and Selection",
-      RATING: "",
+      RATING: recruitmentweightedmean,
     },
     {
       SUB_AREAS: "Ranking and Promotion",
-      RATING: "",
+      RATING: rankingweightedmean,
     },
     {
       SUB_AREAS: "Faculty Loading",
-      RATING: "",
+      RATING: facultyloadingweightedmean,
     },
     {
       SUB_AREAS: "Professional Performance and Scholarly Work",
-      RATING: "",
+      RATING: professionalandscholarlyweightedmean,
     },
     {
       SUB_AREAS: "Performance Evaluation",
-      RATING: "",
+      RATING: performanceevaluationweightedmean,
     },
     {
       SUB_AREAS: "Faculty Development Program",
-      RATING: "",
+      RATING: facultydevelopmentweightedmean,
     },
     {
       SUB_AREAS: "Faculty Relationships",
-      RATING: "",
+      RATING: facultyrelationshipsweightedmean,
     },
     {
       SUB_AREAS: "Salaries and Benefits",
-      RATING: "",
+      RATING: salariesandfringebenefitsweightedmean,
     },
   ];
+
+  const handleAcademicMean = (value) => {
+    setAcademicWeightedMean(value);
+  };
+
+  const handleRecruitmentMean = (value) => {
+    setRecruitmentWeightedMean(value);
+  };
+
+  const handleRankingMean = (value) => {
+    setRankingWeightedMean(value);
+  };
+
+  const handleFacultyLoadingMean = (value) => {
+    setFacultyLoadingWeightedMean(value);
+  };
+
+  const handleProfessionalMean = (value) => {
+    setProfessionalAndScholarlyWeightedMean(value);
+  };
+
+  const handlePerformanceMean = (value) => {
+    setPerformanceEvaluationWeightedMean(value);
+  };
+
+  const handleFacultyDevelopmentMean = (value) => {
+    setFacultyDevelopmentWeightedMean(value);
+  };
+
+  const handleFacultyRelationshipsMean = (value) => {
+    setFacultyRelationshipsWeightedMean(value);
+  };
+
+  const handleSalariesMean = (value) => {
+    setSalariesAndFringeBenefitsWeightedMean(value);
+  };
+
+  const totalSum = TABLE_ROWS.reduce((acc, row) => acc + row.RATING, 0);
+
+  const areaCount = TABLE_ROWS.length;
+  const areaMean = totalSum / areaCount;
+
   return (
     <>
       <NavbarComponent />
@@ -105,15 +175,41 @@ export default function AdminForms() {
           <Step onClick={() => setActiveStep(8)}>9</Step>
           <Step onClick={() => setActiveStep(9)}>10</Step>
         </Stepper>
-        {activeStep === 0 && <Academic_Qualification />}
-        {activeStep === 1 && <Recruitment_Selection />}
-        {activeStep === 2 && <Ranking_Promotion />}
-        {activeStep === 3 && <Faculty_Loading />}
-        {activeStep === 4 && <Professional_Performance_and_Scholarly_Work />}
-        {activeStep === 5 && <Performance_Evaluation />}
-        {activeStep === 6 && <Faculty_Development_Program />}
-        {activeStep === 7 && <Faculty_Relationships />}
-        {activeStep === 8 && <Salaries_And_Fringe_Benefits />}
+        {activeStep === 0 && (
+          <Academic_Qualification AcademicMean={handleAcademicMean} />
+        )}
+        {activeStep === 1 && (
+          <Recruitment_Selection RecruitmentMean={handleRecruitmentMean} />
+        )}
+        {activeStep === 2 && (
+          <Ranking_Promotion RankingMean={handleRankingMean} />
+        )}
+        {activeStep === 3 && (
+          <Faculty_Loading FacultyLoadingMean={handleFacultyLoadingMean} />
+        )}
+        {activeStep === 4 && (
+          <Professional_Performance_and_Scholarly_Work
+            ProfessionalMean={handleProfessionalMean}
+          />
+        )}
+        {activeStep === 5 && (
+          <Performance_Evaluation PerformanceMean={handlePerformanceMean} />
+        )}
+        {activeStep === 6 && (
+          <Faculty_Development_Program
+            FacultyDevelopmentMean={handleFacultyDevelopmentMean}
+          />
+        )}
+        {activeStep === 7 && (
+          <Faculty_Relationships
+            FacultyRelationshipsMean={handleFacultyRelationshipsMean}
+          />
+        )}
+        {activeStep === 8 && (
+          <Salaries_And_Fringe_Benefits
+            SalariesBenefitsMean={handleSalariesMean}
+          />
+        )}
         {activeStep === 9 && (
           <>
             <div className="mt-10"></div>
@@ -179,7 +275,15 @@ export default function AdminForms() {
                           TOTAL
                         </Typography>
                       </td>
-                      <td className="p-4 bg-blue-gray-50/50"></td>
+                      <td className="p-4 bg-blue-gray-50/50">
+                        <Typography
+                          variant="small"
+                          color="blue-gray"
+                          className="font-bold"
+                        >
+                          {totalSum}
+                        </Typography>
+                      </td>
                     </tr>
                     <tr>
                       <td className="p-4">
@@ -191,7 +295,15 @@ export default function AdminForms() {
                           AREA MEAN
                         </Typography>
                       </td>
-                      <td className="p-4 bg-blue-gray-50/50"></td>
+                      <td className="p-4 bg-blue-gray-50/50">
+                        <Typography
+                          variant="small"
+                          color="blue-gray"
+                          className="font-bold"
+                        >
+                          {areaMean.toFixed(2)}
+                        </Typography>
+                      </td>
                     </tr>
                   </tbody>
                 </table>
