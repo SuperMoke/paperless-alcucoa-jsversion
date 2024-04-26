@@ -11,6 +11,13 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { auth } from "../firebase";
 import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
+import {
+  getFirestore,
+  query,
+  collection,
+  where,
+  getDocs,
+} from "firebase/firestore";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -22,7 +29,27 @@ export default function Login() {
     const auth = getAuth();
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      router.push("/user");
+      const db = getFirestore();
+      const userQuery = query(
+        collection(db, "userdata"),
+        where("email", "==", email)
+      );
+      const userSnapshot = await getDocs(userQuery);
+      if (!userSnapshot.empty) {
+        userSnapshot.forEach((doc) => {
+          const userData = doc.data();
+          const role = userData.role;
+          if (role === "admin") {
+            router.push("/admin");
+          } else if (role === "faculty") {
+            router.push("/faculty");
+          } else {
+            console.error("Role not specified");
+          }
+        });
+      } else {
+        console.error("User not found or role not specified");
+      }
     } catch (error) {
       console.error("Error logging in:", error);
     }
