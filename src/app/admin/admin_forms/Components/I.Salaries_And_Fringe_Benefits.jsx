@@ -141,7 +141,7 @@ payday"
           <Radio
             name="input3"
             label="1 - One/ Two (1 or 2) of the policies mentioned is/are
-provided "
+provided"
             onChange={() => handleRadioChange("1", "input", 2)}
           />
           <Radio
@@ -197,7 +197,7 @@ provided "
           <Typography>
             5.The faculty enjoy the other mandatory benefits such as: a. Medical
             benefits ; b. Loan and housing under PAG-IBIG; c. Loan and Housing
-            under GSIS; and d. City and institutional benefit..
+            under GSIS; and d. City and institutional benefit.
           </Typography>
           <Radio
             name="input5"

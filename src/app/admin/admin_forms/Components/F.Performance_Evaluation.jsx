@@ -79,7 +79,7 @@ export default function Performance_Evaluation({ PerformanceMean }) {
             1.The institution has a system that: 1.1. Monitors submission of
             academic requirements such as syllabi, grades and the like 1.2.
             Monitors faculty participation in trainings, meetings and other
-            institutional activities/ services
+            institutional activities/ services.
           </Typography>
           <Radio
             name="input1"

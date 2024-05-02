@@ -1,11 +1,41 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { Card, Typography, Radio, Input } from "@material-tailwind/react";
+import {
+  Card,
+  Typography,
+  Radio,
+  Input,
+  input,
+} from "@material-tailwind/react";
 
 export default function Academic_Qualification({ AcademicMean }) {
   const [inputValues, setInputValues] = useState(["", "", "", ""]);
   const [processValues, setProcessValues] = useState(["", ""]);
   const [outputValues, setOutputValues] = useState(["", "", ""]);
+
+  useEffect(() => {
+    const storedInputValues = JSON.parse(
+      localStorage.getItem("inputValues")
+    ) || ["", "", "", ""];
+    const storedProcessValues = JSON.parse(
+      localStorage.getItem("processValues")
+    ) || ["", ""];
+    const storedOutputValues = JSON.parse(
+      localStorage.getItem("outputValues")
+    ) || ["", "", ""];
+
+    console.log(inputValues, processValues, outputValues);
+
+    setInputValues(storedInputValues);
+    setProcessValues(storedProcessValues);
+    setOutputValues(storedOutputValues);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("inputValues", JSON.stringify(inputValues));
+    localStorage.setItem("processValues", JSON.stringify(processValues));
+    localStorage.setItem("outputValues", JSON.stringify(outputValues));
+  }, [inputValues, processValues, outputValues]);
 
   const handleRadioChange = (value, section, index) => {
     switch (section) {
@@ -75,6 +105,7 @@ export default function Academic_Qualification({ AcademicMean }) {
               name="input1"
               label="1 - Less than 20% of the faculty members teaching general
 education courses are Master’s degree holders"
+              checked={inputValues[0] === "1"}
               onChange={() => handleRadioChange("1", "input", 0)}
             />
             <Radio
@@ -83,6 +114,7 @@ education courses are Master’s degree holders"
 courses are Master’s degree holders or 30% are
 Master’s degree holders and 20% are finishing within
 one (1) year."
+              checked={inputValues[0] === "2"}
               onChange={() => handleRadioChange("2", "input", 0)}
             />
             <Radio
@@ -91,18 +123,21 @@ one (1) year."
 courses are Master’s degree holders or 40% are
 Master’s degree holders and 30% are finishing within
 one (1) year."
+              checked={inputValues[0] === "3"}
               onChange={() => handleRadioChange("3", "input", 0)}
             />
             <Radio
               name="input1"
               label="4 - 80% of the faculty members teaching general
 education courses are Master’s degree holders "
+              checked={inputValues[0] === "4"}
               onChange={() => handleRadioChange("4", "input", 0)}
             />
             <Radio
               name="input1"
               label="5 - 100% of the faculty members teaching general
 education courses are Master’s degree holders"
+              checked={inputValues[0] === "5"}
               onChange={() => handleRadioChange("5", "input", 0)}
             />
           </div>

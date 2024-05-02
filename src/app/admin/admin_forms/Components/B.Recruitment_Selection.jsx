@@ -52,8 +52,8 @@ export default function Recruitment_Selection({ RecruitmentMean }) {
   const totalWeightedMean =
     weightedInputMean + weightedProcessMean + weightedOutputMean;
 
-  console.log(totalWeightedMean);
   RecruitmentMean(totalWeightedMean);
+
   return (
     <>
       <div className="mt-10"></div>

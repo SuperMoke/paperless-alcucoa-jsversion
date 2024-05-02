@@ -149,6 +149,21 @@ export default function AdminForms() {
   const areaCount = TABLE_ROWS.length;
   const areaMean = totalSum / areaCount;
 
+  const saveAsPDF = () => {
+    const card = document.getElementById("summary-card");
+
+    html2canvas(card).then((canvas) => {
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF();
+      const imgProps = pdf.getImageProperties(imgData);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      pdf.save("summary.pdf");
+    });
+  };
+
   return (
     <>
       <NavbarComponent />
@@ -214,8 +229,10 @@ export default function AdminForms() {
           <>
             <div className="mt-10"></div>
             <div>
-              <Card className="w-full h-full px-10 py-10">
-                <Typography>Summary of Ratings</Typography>
+              <Card className="w-full h-full px-10 py-10" id="summary-card">
+                <Typography className="mb-5 text-center text-bold">
+                  Summary of Ratings
+                </Typography>
                 <table className="w-full min-w-max table-auto text-left">
                   <thead>
                     <tr>
@@ -309,6 +326,9 @@ export default function AdminForms() {
                 </table>
               </Card>
             </div>
+            <Button className="mt-5" onClick={saveAsPDF}>
+              Download PDF
+            </Button>
           </>
         )}
 
