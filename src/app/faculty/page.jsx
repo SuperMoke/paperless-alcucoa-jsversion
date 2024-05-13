@@ -31,6 +31,13 @@ import { onAuthStateChanged } from "firebase/auth";
 import { Select, Option } from "@material-tailwind/react";
 import { CheckCircleIcon, XCircleIcon } from "@heroicons/react/24/solid";
 import { DocumentTextIcon, TrashIcon } from "@heroicons/react/24/outline";
+import {
+  getAuth,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  updatePassword,
+  signInWithEmailAndPassword,
+} from "firebase/auth";
 
 export default function UserHomepage() {
   const [files, setFiles] = useState(Array(9).fill(null));
@@ -47,6 +54,9 @@ export default function UserHomepage() {
   const [department, setDepartment] = useState("");
   const [status, setStatus] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   const categories = [
     "Diploma",
@@ -288,6 +298,31 @@ export default function UserHomepage() {
     }
   };
 
+  const handleChangePassword = async () => {
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      const Emailcredential = EmailAuthProvider.credential(
+        user.email,
+        currentPassword
+      );
+      await reauthenticateWithCredential(user, Emailcredential);
+      console.log("Credential:", Emailcredential);
+
+      if (newPassword !== confirmPassword) {
+        console.error("New password and confirm password do not match");
+        return;
+      }
+      await updatePassword(user, newPassword).then(() => {
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+      });
+    } catch (error) {
+      console.error("Error updating password:", error);
+    }
+  };
+
   return (
     <>
       {uploading && <Progress value={progress} color="green" className="h-2" />}
@@ -387,6 +422,45 @@ export default function UserHomepage() {
                   </div>
                 </>
               )}
+              <div className="mt-10"></div>
+              <Typography
+                color="gray"
+                className="text-xl font-bold mb-5 text-center"
+              >
+                Change Password
+              </Typography>
+              <div className="flex flex-col space-y-2">
+                <Typography color="gray" className="font-bold mb-2 ">
+                  Current Password:
+                </Typography>
+                <Input
+                  label="Enter The Current Password"
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                ></Input>
+                <Typography color="gray" className="font-bold mb-2 ">
+                  New Password:
+                </Typography>
+                <Input
+                  label="Enter The New Password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                ></Input>
+                <Typography color="gray" className="font-bold mb-2 ">
+                  Confirm New Password:
+                </Typography>
+                <Input
+                  label="Confirm the New Password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                ></Input>
+              </div>
+              <Button className="mt-5" onClick={handleChangePassword}>
+                Submit
+              </Button>
             </CardBody>
           </Card>
           <Card className="w-[1000px] h-full">
