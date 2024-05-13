@@ -64,9 +64,9 @@ export default function Login() {
         >
           <div className="flex justify-center">
             <Image
-              src="/cca-logo.png"
-              width={100}
-              height={100}
+              src="/Logo_Alcucoa.jpeg"
+              width={250}
+              height={250}
               alt="CCA Logo"
             />
           </div>

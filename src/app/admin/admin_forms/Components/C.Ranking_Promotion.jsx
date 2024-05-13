@@ -51,7 +51,7 @@ export default function Ranking_Promotion({ RankingMean }) {
 
   const totalWeightedMean =
     weightedInputMean + weightedProcessMean + weightedOutputMean;
-
+    
   RankingMean(totalWeightedMean);
 
   return (

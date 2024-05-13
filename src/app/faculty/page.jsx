@@ -2,62 +2,51 @@
 import React, { useState, useEffect } from "react";
 import NavbarComponent from "./navbar";
 import Button from "@material-tailwind/react/components/Button";
-import { db, storage } from "@/app/firebase";
-import { uploadBytesResumable, listAll, getMetadata } from "firebase/storage";
-import { useRouter } from "next/navigation";
+import { db, storage, auth } from "@/app/firebase";
+import {
+  uploadBytesResumable,
+  getMetadata,
+  getDownloadURL,
+  deleteObject,
+  ref,
+} from "firebase/storage";
 import {
   addDoc,
   collection,
   doc,
-  onSnapshot,
   serverTimestamp,
-} from "firebase/firestore";
-import Alert from "@material-tailwind/react/components/Alert";
-import { Progress, Typography } from "@material-tailwind/react";
-import Card from "@material-tailwind/react/components/Card";
-import CardHeader from "@material-tailwind/react/components/Card/CardHeader";
-import CardBody from "@material-tailwind/react/components/Card/CardBody";
-import CardFooter from "@material-tailwind/react/components/Card/CardFooter";
-import Input from "@material-tailwind/react/components/Input";
-import Image from "next/image";
-import { auth } from "@/app/firebase";
-import { onAuthStateChanged } from "firebase/auth";
-import {
   query,
   where,
   getDocs,
-  getFirestore,
   updateDoc,
+  deleteDoc,
+  onSnapshot,
 } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { Progress, Typography } from "@material-tailwind/react";
+import Card from "@material-tailwind/react/components/Card";
+import CardBody from "@material-tailwind/react/components/Card/CardBody";
+import Input from "@material-tailwind/react/components/Input";
+import Image from "next/image";
+import { onAuthStateChanged } from "firebase/auth";
+import { Select, Option } from "@material-tailwind/react";
+import { CheckCircleIcon, XCircleIcon } from "@heroicons/react/24/solid";
+import { DocumentTextIcon, TrashIcon } from "@heroicons/react/24/outline";
 
 export default function UserHomepage() {
-  const router = useRouter();
-  const [file, setFile] = useState(null);
-  const [file2, setFile2] = useState(null);
-  const [file3, setFile3] = useState(null);
-  const [file4, setFile4] = useState(null);
-  const [file5, setFile5] = useState(null);
-  const [file6, setFile6] = useState(null);
-  const [file7, setFile7] = useState(null);
-  const [file8, setFile8] = useState(null);
-  const [file9, setFile9] = useState(null);
-
+  const [files, setFiles] = useState(Array(9).fill(null));
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [uploadedUrl, setUploadedUrl] = useState(null);
   const [userFiles, setUserFiles] = useState([]);
   const [error, setError] = useState("");
   const [folderName, setFolderName] = useState("");
   const [userid, setUserID] = useState("");
-
   const [profilePhoto, setProfilePhoto] = useState(null);
-
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [profileUrl, setProfileUrl] = useState("");
   const [department, setDepartment] = useState("");
   const [status, setStatus] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("");
 
   const categories = [
     "Diploma",
@@ -77,8 +66,6 @@ export default function UserHomepage() {
         auth.onAuthStateChanged(async (currentUser) => {
           if (currentUser) {
             const userEmail = currentUser.email;
-            console.log("User email:", userEmail);
-            const db = getFirestore();
             const userQuery = query(
               collection(db, "userdata"),
               where("email", "==", userEmail)
@@ -110,7 +97,10 @@ export default function UserHomepage() {
       if (user) {
         const userId = user.uid;
         setUserID(userId);
-        fetchUserFiles(userId);
+        const unsubscribeFiles = fetchUserFiles(userId);
+        return () => {
+          unsubscribeFiles();
+        };
       } else {
         setUserID(null);
         setUserFiles([]);
@@ -119,103 +109,78 @@ export default function UserHomepage() {
     return () => unsubscribe();
   }, []);
 
-  const fetchUserFiles = async (userId) => {
-    try {
-      const categories = [
-        "Diploma",
-        "Official Transcript of Records(TOR)",
-        "Certificate of attendance to trainings or seminars",
-        "Certificate of Employment of the employee from the previous employer",
-        "National Certifications or Licenses and board rating",
-        "Rating Form for Academic Qualification",
-        "Copy of the research output or abstract",
-        "Appointment papers of hired employees",
-        "Certificate of participation in community involvement",
-      ];
-      const userFilesData = [];
-      for (const category of categories) {
-        const q = query(
-          collection(db, `faculty/files/${category}`),
-          where("user_id", "==", userId)
-        );
-        const querySnapshot = await getDocs(q);
-        querySnapshot.forEach((doc) => {
-          userFilesData.push({ category, name: doc.data().name });
+  const fetchUserFiles = (userId) => {
+    const userFilesData = [];
+    const unsubscribes = [];
+
+    categories.forEach((category) => {
+      const q = query(
+        collection(db, `faculty/files/${category}`),
+        where("user_id", "==", userId)
+      );
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === "added") {
+            userFilesData.push({
+              id: change.doc.id,
+              category: category,
+              name: change.doc.data().name,
+              url: change.doc.data().url,
+            });
+          }
+          if (change.type === "removed") {
+            const index = userFilesData.findIndex(
+              (file) => file.id === change.doc.id
+            );
+            if (index !== -1) {
+              userFilesData.splice(index, 1);
+            }
+          }
         });
-      }
-      console.log("User files data:", userFilesData);
-      setUserFiles(userFilesData);
-    } catch (error) {
-      console.error("Error fetching user files:", error);
-    }
+        setUserFiles([...userFilesData]);
+      });
+      unsubscribes.push(unsubscribe);
+    });
+
+    return () => {
+      unsubscribes.forEach((unsubscribe) => unsubscribe());
+    };
   };
 
   const setFolderNameBasedOnFiles = () => {
-    if (file) {
-      setFolderName("Diploma");
-      return;
-    }
-    if (file2) {
-      setFolderName("Official Transcript of Records(TOR)");
-      return;
-    }
-    if (file3) {
-      setFolderName("Certificate of attendance to trainings or seminars");
-      return;
-    }
-    if (file4) {
-      setFolderName(
-        "Certificate of Employment of the employee from the previous employer"
-      );
-      return;
-    }
-    if (file5) {
-      setFolderName("National Certifications or Licenses and board rating");
-      return;
-    }
-    if (file6) {
-      setFolderName("Rating Form for Academic Qualification");
-      return;
-    }
-    if (file7) {
-      setFolderName("Copy of the research output or abstract");
-      return;
-    }
-    if (file8) {
-      setFolderName("Appointment papers of hired employees");
-      return;
-    }
-    if (file9) {
-      setFolderName("Certificate of participation in community involvement");
-      return;
+    const fileIndex = files.findIndex((file) => file !== null);
+    if (fileIndex !== -1) {
+      setFolderName(categories[fileIndex]);
     }
   };
 
   useEffect(() => {
     setFolderNameBasedOnFiles();
-  }, [file, file2, file3, file4, file5, file6, file7, file8, file9]);
+  }, [files]);
 
-  const handleFileChange = (event, setter) => {
-    const allowedTypes = [
-      "application/pdf",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "application/msword",
-    ];
-    const selectedFile = event.target.files && event.target.files[0];
-
+  const handleFileChange = (event, index) => {
+    const selectedFile = event.target.files[0];
     if (selectedFile) {
+      const allowedTypes = [
+        "application/pdf",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/msword",
+      ];
       if (!allowedTypes.includes(selectedFile.type)) {
         setError(
           "Unsupported file type. Please select a PDF, DOC, or DOCX file."
         );
       } else {
-        setter(selectedFile);
+        const newFiles = [...files];
+        newFiles[index] = selectedFile;
+        setFiles(newFiles);
         setError("");
       }
     }
   };
 
-  const handleUpload = async (file) => {
+  const handleUpload = async (index) => {
+    const file = files[index];
     const user = auth.currentUser;
     const user_id = user.uid;
     setUserID(user_id);
@@ -226,7 +191,7 @@ export default function UserHomepage() {
     );
     try {
       await getMetadata(storageRef);
-      setError(`File already exists.`);
+      setError("File already exists.");
       return;
     } catch (error) {
       setError("");
@@ -238,17 +203,15 @@ export default function UserHomepage() {
       (snapshot) => {
         const progress =
           (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-        progress.toFixed(0);
-        setProgress(progress);
+        setProgress(progress.toFixed(0));
       },
       (error) => {
-        setError(`There is an error uploading the file`);
+        setError("There is an error uploading the file");
         setUploading(false);
       },
       async () => {
         try {
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-          setUploadedUrl(downloadURL);
           setUploading(false);
           await addDoc(collection(db, `faculty/files/${folderName}`), {
             user_id: user_id,
@@ -256,18 +219,11 @@ export default function UserHomepage() {
             url: downloadURL,
             timestamp: serverTimestamp(),
           });
-          setFile(null);
-          setFile2(null);
-          setFile3(null);
-          setFile4(null);
-          setFile5(null);
-          setFile6(null);
-          setFile7(null);
-          setFile8(null);
-          setFile9(null);
+          setFiles(Array(9).fill(null));
+          setSelectedCategory("");
           console.log("File upload successful and metadata added to Firestore");
         } catch (error) {
-          setError(`There is an error uploading the file`);
+          setError("There is an error uploading the file");
           setUploading(false);
         }
       }
@@ -284,12 +240,10 @@ export default function UserHomepage() {
     try {
       const storageRef = ref(
         storage,
-        "profileImages/" + userid + profilePhoto.name
+        `profileImages/${userid}${profilePhoto.name}`
       );
       await uploadBytes(storageRef, profilePhoto);
       const downloadURL = await getDownloadURL(storageRef);
-      console.log("Image uploaded:", downloadURL);
-      const db = getFirestore();
       const userRef = collection(db, "userdata");
       const userQuery = query(userRef, where("userID", "==", userid));
       const userSnapshot = await getDocs(userQuery);
@@ -312,8 +266,31 @@ export default function UserHomepage() {
       console.error("Error uploading image:", error);
     }
   };
+
+  const handleCategoryChange = (value) => {
+    setSelectedCategory(value);
+  };
+
+  const handleDeleteFile = async (file) => {
+    if (!window.confirm(`Are you sure you want to delete ${file.name}?`))
+      return;
+    try {
+      if (!file.url) {
+        console.error("File URL is missing");
+        return;
+      }
+      const fileRef = ref(storage, file.url);
+      await deleteObject(fileRef);
+      console.log("File deleted successfully");
+      await deleteDoc(doc(db, `faculty/files/${file.category}`, file.id));
+    } catch (error) {
+      console.error("Error deleting file:", error);
+    }
+  };
+
   return (
     <>
+      {uploading && <Progress value={progress} color="green" className="h-2" />}
       <NavbarComponent />
       <div className="flex min-h-full flex-1 flex-col justify-center items-center py-10 sm:px-6 lg:px-8">
         <Typography variant="h2" className="mb-4 text-center">
@@ -357,283 +334,98 @@ export default function UserHomepage() {
               <h2 className="text-black mr-2 mb-2 text-center">
                 Requirements:
               </h2>
-              <h2 className="text-black mr-2 mb-2">Diploma:</h2>
-              <div className="relative flex w-full max-w-96 items-center">
-                <Input
-                  type="file"
-                  size="md"
-                  onChange={(e) => handleFileChange(e, setFile)}
-                  className="pr-20 pt-2"
-                  containerProps={{
-                    className: "min-w-0",
-                  }}
-                  placeholder={undefined}
-                  crossOrigin={undefined}
-                />
-                <Button
-                  size="sm"
-                  disabled={!file || uploading}
-                  color={file ? "green" : "gray"}
-                  className="!absolute right-1 top-1 rounded bg-green-900"
-                  placeholder={undefined}
-                  onClick={() => handleUpload(file)}
-                >
-                  Submit
-                </Button>
-              </div>
-
-              <h2 className="text-black mr-2 mt-2 mb-2">
-                Official Transcript of Record(TOR):
-              </h2>
-              <div className="relative flex w-full max-w-96 items-center">
-                <Input
-                  type="file"
-                  size="md"
-                  onChange={(e) => handleFileChange(e, setFile2)}
-                  className="pr-20 pt-2"
-                  containerProps={{
-                    className: "min-w-0",
-                  }}
-                  placeholder={undefined}
-                  crossOrigin={undefined}
-                />
-                <Button
-                  size="sm"
-                  disabled={!file2 || uploading}
-                  color={file2 ? "green" : "gray"}
-                  className="!absolute right-1 top-1 rounded bg-green-900"
-                  placeholder={undefined}
-                  onClick={() => handleUpload(file2)}
-                >
-                  Submit
-                </Button>
-              </div>
-              <h2 className="text-black mr-2 mt-2">
-                Certificate of attendance to trainings/seminars
-              </h2>
-              <h2 className="text-black mr-2 mb-2">
-                (aligned to the fields of specialization):
-              </h2>
-              <div className="relative flex w-full max-w-96 items-center">
-                <Input
-                  type="file"
-                  size="md"
-                  onChange={(e) => handleFileChange(e, setFile3)}
-                  className="pr-20 pt-2"
-                  containerProps={{
-                    className: "min-w-0",
-                  }}
-                  placeholder={undefined}
-                  crossOrigin={undefined}
-                />
-                <Button
-                  size="sm"
-                  disabled={!file3 || uploading}
-                  color={file3 ? "green" : "gray"}
-                  className="!absolute right-1 top-1 rounded bg-green-900"
-                  placeholder={undefined}
-                  onClick={() => handleUpload(file3)}
-                >
-                  Submit
-                </Button>
-              </div>
-
-              <h2 className="text-black mr-2 mt-2 ">
-                Certificate of Employment of the
-              </h2>
-              <h2 className="text-black mr-2 mb-2">
-                {" "}
-                employee from the previous employer:
-              </h2>
-              <div className="relative flex w-full max-w-96 items-center">
-                <Input
-                  type="file"
-                  size="md"
-                  onChange={(e) => handleFileChange(e, setFile4)}
-                  className="pr-20 pt-2"
-                  containerProps={{
-                    className: "min-w-0",
-                  }}
-                  placeholder={undefined}
-                  crossOrigin={undefined}
-                />
-                <Button
-                  size="sm"
-                  disabled={!file4 || uploading}
-                  color={file4 ? "green" : "gray"}
-                  className="!absolute right-1 top-1 rounded bg-green-900"
-                  placeholder={undefined}
-                  onClick={() => handleUpload(file4)}
-                >
-                  Submit
-                </Button>
-              </div>
-
-              <h2 className="text-black mr-2 mt-2 mb-2">
-                National Certifications/Licenses and board rating:
-              </h2>
-              <div className="relative flex w-full max-w-96 items-center">
-                <Input
-                  type="file"
-                  size="md"
-                  onChange={(e) => handleFileChange(e, setFile5)}
-                  className="pr-20 pt-2"
-                  containerProps={{
-                    className: "min-w-0",
-                  }}
-                  placeholder={undefined}
-                  crossOrigin={undefined}
-                />
-                <Button
-                  size="sm"
-                  disabled={!file5 || uploading}
-                  color={file5 ? "green" : "gray"}
-                  className="!absolute right-1 top-1 rounded bg-green-900"
-                  placeholder={undefined}
-                  onClick={() => handleUpload(file5)}
-                >
-                  Submit
-                </Button>
-              </div>
-
-              <h2 className="text-black mr-2 mt-2 mb-2">
-                Rating Form for Academic Qualification:
-              </h2>
-              <div className="relative flex w-full max-w-96 items-center">
-                <Input
-                  type="file"
-                  size="md"
-                  onChange={(e) => handleFileChange(e, setFile6)}
-                  className="pr-20 pt-2"
-                  containerProps={{
-                    className: "min-w-0",
-                  }}
-                  placeholder={undefined}
-                  crossOrigin={undefined}
-                />
-                <Button
-                  size="sm"
-                  disabled={!file6 || uploading}
-                  color={file6 ? "green" : "gray"}
-                  className="!absolute right-1 top-1 rounded bg-green-900"
-                  placeholder={undefined}
-                  onClick={() => handleUpload(file6)}
-                >
-                  Submit
-                </Button>
-              </div>
-
-              <h2 className="text-black mr-2 mt-2 mb-2">
-                Copy of the research output or abstract :
-              </h2>
-              <div className="relative flex w-full max-w-96 items-center">
-                <Input
-                  type="file"
-                  size="md"
-                  onChange={(e) => handleFileChange(e, setFile7)}
-                  className="pr-20 pt-2"
-                  containerProps={{
-                    className: "min-w-0",
-                  }}
-                  placeholder={undefined}
-                  crossOrigin={undefined}
-                />
-                <Button
-                  size="sm"
-                  disabled={!file7 || uploading}
-                  color={file7 ? "green" : "gray"}
-                  className="!absolute right-1 top-1 rounded bg-green-900"
-                  placeholder={undefined}
-                  onClick={() => handleUpload(file7)}
-                >
-                  Submit
-                </Button>
-              </div>
-
-              <h2 className="text-black mr-2 mt-2 mb-2">
-                Appointment papers of hired employees:
-              </h2>
-              <div className="relative flex w-full max-w-96 items-center">
-                <Input
-                  type="file"
-                  size="md"
-                  onChange={(e) => handleFileChange(e, setFile8)}
-                  className="pr-20 pt-2"
-                  containerProps={{
-                    className: "min-w-0",
-                  }}
-                  placeholder={undefined}
-                  crossOrigin={undefined}
-                />
-                <Button
-                  size="sm"
-                  disabled={!file8 || uploading}
-                  color={file8 ? "green" : "gray"}
-                  className="!absolute right-1 top-1 rounded bg-green-900"
-                  placeholder={undefined}
-                  onClick={() => handleUpload(file8)}
-                >
-                  Submit
-                </Button>
-              </div>
-
-              <h2 className="text-black mr-2 mt-2 mb-2">
-                Certificate of partiipation in community involvement:
-              </h2>
-              <div className="relative flex w-full max-w-96 items-center">
-                <Input
-                  type="file"
-                  size="md"
-                  onChange={(e) => handleFileChange(e, setFile9)}
-                  className="pr-20 pt-2"
-                  containerProps={{
-                    className: "min-w-0",
-                  }}
-                  placeholder={undefined}
-                  crossOrigin={undefined}
-                />
-                <Button
-                  size="sm"
-                  disabled={!file9 || uploading}
-                  color={file9 ? "green" : "gray"}
-                  className="!absolute right-1 top-1 rounded bg-green-900"
-                  placeholder={undefined}
-                  onClick={() => handleUpload(file9)}
-                >
-                  Submit
-                </Button>
-              </div>
+              <Select
+                label="Select Category"
+                value={selectedCategory}
+                onChange={handleCategoryChange}
+              >
+                <Option value="">Select a category</Option>
+                {categories.map((category, index) => (
+                  <Option key={index} value={category}>
+                    {category}
+                  </Option>
+                ))}
+              </Select>
+              {selectedCategory && (
+                <>
+                  <h2 className="text-black mr-2 mt-4 mb-2">
+                    {selectedCategory}:
+                  </h2>
+                  <div className="relative flex w-full max-w-96 items-center">
+                    <Input
+                      type="file"
+                      size="md"
+                      onChange={(e) =>
+                        handleFileChange(
+                          e,
+                          categories.indexOf(selectedCategory)
+                        )
+                      }
+                      className="pr-20 pt-2"
+                      containerProps={{
+                        className: "min-w-0",
+                      }}
+                    />
+                    <Button
+                      size="sm"
+                      disabled={
+                        !files[categories.indexOf(selectedCategory)] ||
+                        uploading
+                      }
+                      color={
+                        files[categories.indexOf(selectedCategory)]
+                          ? "green"
+                          : "gray"
+                      }
+                      className="!absolute right-1 top-1 rounded bg-green-900"
+                      onClick={() =>
+                        handleUpload(categories.indexOf(selectedCategory))
+                      }
+                    >
+                      Submit
+                    </Button>
+                  </div>
+                </>
+              )}
             </CardBody>
           </Card>
           <Card className="w-[1000px] h-full">
             <Typography color="blue-gray" className="text-center">
               Files Uploaded
             </Typography>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-4">
               {categories.map((category, index) => (
-                <div key={index}>
-                  <Typography color="blue-gray" className="text-center">
-                    {category}
-                  </Typography>
-                  {userFiles.some((file) => file.category === category) ? (
-                    <div>
-                      {userFiles
-                        .filter((file) => file.category === category)
-                        .map((file, idx) => (
-                          <Typography
-                            key={idx}
-                            color="red"
-                            className="text-center"
-                          >
-                            {file.name}
-                          </Typography>
-                        ))}
-                    </div>
-                  ) : (
-                    <Typography color="red" className="text-center">
-                      There are no files uploaded.
-                    </Typography>
-                  )}
+                <div key={index} className="p-2">
+                  <div className="flex items-center justify-between">
+                    <Typography color="blue-gray">{category}</Typography>
+                    {userFiles.some((file) => file.category === category) ? (
+                      <CheckCircleIcon className="h-6 w-6 text-green-500" />
+                    ) : (
+                      <XCircleIcon className="h-6 w-6 text-red-500" />
+                    )}
+                  </div>
+                  <div className="mt-2">
+                    {userFiles
+                      .filter((file) => file.category === category)
+                      .map((file, fileIndex) => (
+                        <div
+                          key={fileIndex}
+                          className="flex items-center justify-between text-sm text-gray-600"
+                        >
+                          {file.name}
+                          <div className="flex items-center space-x-2">
+                            <DocumentTextIcon
+                              className="h-5 w-5 text-blue-500 cursor-pointer"
+                              onClick={() => window.open(file.url, "_blank")}
+                            />
+                            <TrashIcon
+                              className="h-5 w-5 text-red-500 cursor-pointer"
+                              onClick={() => handleDeleteFile(file)}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                  </div>
                 </div>
               ))}
             </div>
