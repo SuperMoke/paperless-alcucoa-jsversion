@@ -193,8 +193,20 @@ export default function UserHomepage() {
     const file = files[index];
     const user = auth.currentUser;
     const user_id = user.uid;
+    const user_email = user.email;
+
     setUserID(user_id);
     if (!file || !user) return;
+    const q = query(
+      collection(db, "userdata"),
+      where("email", "==", user_email)
+    );
+    const querySnapshot = await getDocs(q);
+    let userName = "";
+    querySnapshot.forEach((doc) => {
+      userName = doc.data().name;
+    });
+
     const storageRef = ref(
       storage,
       `files/${user_id}/${folderName}/${file.name}`
@@ -225,8 +237,17 @@ export default function UserHomepage() {
           setUploading(false);
           await addDoc(collection(db, `faculty/files/${folderName}`), {
             user_id: user_id,
+            user_name: userName,
             name: file.name,
             url: downloadURL,
+            timestamp: serverTimestamp(),
+          });
+          await addDoc(collection(db, `filesdata`), {
+            user_id: user_id,
+            user_name: userName,
+            name: file.name,
+            url: downloadURL,
+            categories: folderName,
             timestamp: serverTimestamp(),
           });
           setFiles(Array(9).fill(null));
@@ -374,7 +395,6 @@ export default function UserHomepage() {
                 value={selectedCategory}
                 onChange={handleCategoryChange}
               >
-                <Option value="">Select a category</Option>
                 {categories.map((category, index) => (
                   <Option key={index} value={category}>
                     {category}

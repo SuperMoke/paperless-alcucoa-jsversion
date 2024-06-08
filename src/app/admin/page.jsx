@@ -1,325 +1,190 @@
 "use client";
 import NavbarComponent from "./navbar";
-import FileFunction from "./filefunction";
-import FolderFunction from "./folderfunction";
 import {
+  Typography,
+  Card,
+  CardHeader,
+  CardBody,
   Button,
-  Alert,
-  Progress,
   Input,
-  Select,
-  Option,
+  Textarea,
 } from "@material-tailwind/react";
-import { db, storage } from "@/app/firebase";
+import { useEffect, useState } from "react";
 import {
-  ref,
-  uploadBytesResumable,
-  getDownloadURL,
-  getMetadata,
-} from "firebase/storage";
-import {
+  getDocs,
   addDoc,
   collection,
-  getDocs,
-  onSnapshot,
-  query,
   serverTimestamp,
+  query,
+  where,
+  onSnapshot,
 } from "firebase/firestore";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faFile } from "@fortawesome/free-regular-svg-icons";
-import { Typography, Card } from "@material-tailwind/react";
-import { useEffect, useState } from "react";
+import { db, auth } from "@/app/firebase";
 
 export default function Admin() {
-  const [file, setFile] = useState(null);
-  const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [userFiles, setUserFiles] = useState([]);
-  const [error, setError] = useState("");
-  const [folderName, setFolderName] = useState("");
-  const [currentFolder, setCurrentFolder] = useState("Root");
-  const [showFolderUploader, setShowFolderUploader] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState([]);
-  const [selectedFolder, setSelectedFolder] = useState("Diploma");
-
-  const formatFileName = (fileName) => {
-    const MAX_LENGTH = 20;
-
-    if (fileName.length > MAX_LENGTH) {
-      return fileName.slice(0, MAX_LENGTH - 3) + "...";
-    }
-
-    return fileName;
-  };
-
-  const handleFileChange = (event) => {
-    const allowedTypes = [
-      "application/pdf",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "application/msword",
-    ];
-    const selectedFile = event.target.files && event.target.files[0];
-
-    if (selectedFile) {
-      if (!allowedTypes.includes(selectedFile.type)) {
-        setError(
-          "Unsupported file type. Please select a PDF, DOC, or DOCX file."
-        );
-      } else {
-        setFile(selectedFile);
-        setError("");
-      }
-    }
-  };
-
-  const handleUpload = async () => {
-    if (!file || !session?.user?.email) return;
-    const email = session.user.email;
-    const storageRef = ref(storage, `files/${email}/${file.name}`);
-
-    try {
-      await getMetadata(storageRef);
-      setError(`File already exists.`);
-      return;
-    } catch (error) {
-      setError("");
-    }
-
-    const uploadTask = uploadBytesResumable(storageRef, file);
-
-    setUploading(true);
-
-    uploadTask.on(
-      "state_changed",
-      (snapshot) => {
-        const progress =
-          (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-        progress.toFixed(0);
-        setProgress(progress);
-      },
-      (error) => {
-        setError(`There is an error uploading the file`);
-        setUploading(false);
-      },
-      async () => {
-        try {
-          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-          setUploading(false);
-
-          await addDoc(collection(db, `files/${email}/metadata`), {
-            name: file.name,
-            url: downloadURL,
-            timestamp: serverTimestamp(),
-          });
-          console.log("File upload successful and metadata added to Firestore");
-        } catch (error) {
-          setError(`There is an error uploading the file`);
-          setUploading(false);
-        }
-      }
-    );
-  };
-
-  const handleFolderCreate = async () => {
-    if (!folderName || !session?.user?.email) return;
-    try {
-      const email = session.user.email;
-      const folderRef = collection(db, `users/${email}/folders`);
-
-      // Fetch existing folders
-      const querySnapshot = await getDocs(folderRef);
-
-      // Find the highest ID
-      let maxId = 0;
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        if (data.id > maxId) {
-          maxId = data.id;
-        }
-      });
-      const newFolderId = maxId + 1;
-
-      await addDoc(folderRef, {
-        id: newFolderId,
-        name: folderName,
-        createdAt: new Date(),
-      });
-
-      setFolderName("");
-    } catch (error) {
-      console.error("Error creating folder:", error);
-    }
-  };
-
-  const hideFolderUploader = () => {
-    setShowFolderUploader(false);
-  };
-
-  const folderNames = [
-    "Diploma",
-    "Official Transcript of Records(TOR)",
-    "Certificate of attendance to trainings or seminars",
-    "Certificate of Employment of the employee from the previous employer",
-    "National Certifications or Licenses and board rating",
-    "Rating Form for Academic Qualification",
-    "Copy of the research output or abstract",
-    "Appointment papers of hired employees",
-    "Certificate of participation in community involvement",
-  ];
-
-  const handleSelectChange = (value) => {
-    if (value) {
-      setSelectedFolder(value);
-    }
-  };
+  const [files, setFiles] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
+  const [newAnnouncement, setNewAnnouncement] = useState("");
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const q = query(
-          collection(db, `users/folders/${selectedFolder}/files/metadata`)
-        );
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
-          const files = [];
-          querySnapshot.forEach((doc) => {
-            const data = doc.data();
-            files.push({ name: data.name, url: data.url });
-          });
-          setSearchResults(files);
-        });
-        return () => unsubscribe();
-      } catch (error) {
-        setError("Error fetching data");
-      }
+    const fetchFiles = () => {
+      const filesRef = collection(db, "filesdata");
+      const unsubscribe = onSnapshot(filesRef, (snapshot) => {
+        const filesData = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setFiles(filesData);
+      });
+      return unsubscribe;
     };
 
-    fetchData();
-  }, [selectedFolder]);
+    const fetchAnnouncements = () => {
+      const announcementsRef = collection(db, "announcements");
+      const unsubscribe = onSnapshot(announcementsRef, (snapshot) => {
+        const announcementsData = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setAnnouncements(announcementsData);
+      });
+      return unsubscribe;
+    };
 
-  const filteredFiles = searchResults.filter(
-    (file) =>
-      searchQuery.trim() !== "" &&
-      file.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+    fetchFiles();
+    fetchAnnouncements();
+
+    const unsubscribeFiles = fetchFiles();
+    const unsubscribeAnnouncements = fetchAnnouncements();
+
+    return () => {
+      unsubscribeFiles();
+      unsubscribeAnnouncements();
+    };
+  }, []);
+
+  const handlePostAnnouncement = async () => {
+    const user = auth.currentUser;
+    const user_email = user.email;
+    if (newAnnouncement.trim() === "") return;
+    const q = query(
+      collection(db, "userdata"),
+      where("email", "==", user_email)
+    );
+    const querySnapshot = await getDocs(q);
+    let userName = "";
+    querySnapshot.forEach((doc) => {
+      userName = doc.data().name;
+    });
+
+    const announcement = {
+      message: newAnnouncement,
+      timestamp: serverTimestamp(),
+      user: userName,
+    };
+
+    const announcementsRef = collection(db, "announcements");
+    await addDoc(announcementsRef, announcement);
+
+    setNewAnnouncement("");
+  };
+
   return (
     <>
       <NavbarComponent />
-      <div className="flex min-h-full flex-1 flex-col justify-center items-center py-10 sm:px-6 lg:px-8">
+      <div className="flex flex-col justify-center items-center py-10 sm:px-6 lg:px-8">
         <Typography variant="h2" className="mb-4 text-center">
-          Admin Page
+          Admin Dashboard
         </Typography>
-        <h2 className="text-2xl font-bold leading-9 tracking-tight text-black text-center">
-          Content
-        </h2>
-        <div>
-          {error && (
-            <>
-              <Alert
-                open={true}
-                onClose={() => setError("")}
-                animate={{
-                  mount: { y: 0 },
-                  unmount: { y: 200 },
-                }}
-                className="mt-2 mb-2 sm:w-auto text-sm"
-                variant="outlined"
-                color="red"
+        <div className="flex w-full max-w-7xl space-x-6">
+          <div className="flex-1 bg-white shadow-md rounded-lg overflow-hidden">
+            <div className="px-4 py-5 sm:px-6">
+              <Typography
+                variant="h4"
+                className="text-lg leading-6 font-medium text-gray-900"
               >
-                {error}
-              </Alert>
-            </>
-          )}
-        </div>
-        <div className="flex flex-col">
-          <div className="relative flex w-full max-w-[24rem]">
-            <Input
-              type="file"
-              size="md"
-              onChange={handleFileChange}
-              className="pr-20 pt-2"
-              containerProps={{
-                className: "min-w-0",
-              }}
-              placeholder={undefined}
-              crossOrigin={undefined}
-            />
-            <Button
-              size="sm"
-              disabled={!file || uploading}
-              color={file ? "green" : "green"}
-              className="!absolute right-1 top-1 rounded bg-green-900"
-              placeholder={undefined}
-              onClick={handleUpload}
-            >
-              Submit
-            </Button>
-          </div>
-          <div className="mt-5 flex flex-row w-full max-w-[24rem]"></div>
-
-          <Select
-            value={selectedFolder}
-            onChange={handleSelectChange}
-            placeholder={undefined}
-            label="Select a folder"
-          >
-            {folderNames.map((name) => (
-              <Option key={name} value={name}>
-                {name}
-              </Option>
-            ))}
-          </Select>
-
-          <div className="mt-3"></div>
-
-          <Input
-            type="text"
-            size="lg"
-            color="green"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            label="Search by file name"
-            className="pr-20 pt-2 "
-            containerProps={{
-              className: "min-w-0",
-            }}
-            crossOrigin={undefined}
-          />
-        </div>
-        <h3 className="text-blue-gray-900 mt-5 text-center text">
-          User Folders: {currentFolder}
-        </h3>
-        {filteredFiles.length > 0 && (
-          <div>
-            <h2 className="text-blue-gray-900 text-center mt-2 mb-5">
-              Search Results:
-            </h2>
-            <ul className="text-blue-gray-900">
-              {filteredFiles.map((file, index) => (
-                <li
-                  key={index}
-                  className="mr-3 mb-3 flex flex-col items-center"
+                Bulletin Board
+              </Typography>
+              <div className="mt-4">
+                <Textarea
+                  value={newAnnouncement}
+                  onChange={(e) => setNewAnnouncement(e.target.value)}
+                  placeholder="Write your announcement..."
+                  rows={4}
+                />
+                <Button
+                  color="green"
+                  className="mt-2"
+                  onClick={handlePostAnnouncement}
                 >
-                  <a href={file.url} target="_blank" rel="noopener noreferrer">
-                    <FontAwesomeIcon icon={faFile} size="3x" />
-                  </a>
-                  <span className={"mt-1 text-center"} title={file.name}>
-                    {file.name}
-                  </span>
-                </li>
-              ))}
-            </ul>
+                  Post
+                </Button>
+              </div>
+            </div>
+            <div className="border-t border-gray-200">
+              <ul className="divide-y divide-gray-200">
+                {announcements.map((announcement) => (
+                  <li key={announcement.id} className="px-4 py-4">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-medium text-gray-900">
+                        {announcement.user}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {announcement.timestamp
+                          ?.toDate()
+                          .toLocaleString(undefined, {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                            hour: "numeric",
+                            minute: "numeric",
+                          })}
+                      </div>
+                    </div>
+                    <div className="mt-2 text-sm text-gray-500">
+                      {announcement.message}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
-        )}
-        <FileFunction currentFolder={currentFolder} />
-        {showFolderUploader && (
-          <FolderFunction
-            currentFolder={currentFolder}
-            setCurrentFolder={setCurrentFolder}
-            setfolderName={folderName}
-            hideFolderUploader={hideFolderUploader}
-          />
-        )}
+          <div className="flex-1 bg-white shadow-md rounded-lg overflow-hidden">
+            <div className="px-4 py-5 sm:px-6">
+              <Typography
+                variant="h4"
+                className="text-lg leading-6 font-medium text-gray-900"
+              >
+                Notifications
+              </Typography>
+            </div>
+            <div className="border-t border-gray-200">
+              <ul className="divide-y divide-gray-200">
+                {files.map((file) => (
+                  <li key={file.id} className="px-4 py-4">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-medium text-gray-900">
+                        {file.user_name} Uploaded a file
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {file.timestamp.toDate().toLocaleString(undefined, {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                          hour: "numeric",
+                          minute: "numeric",
+                        })}
+                      </div>
+                    </div>
+                    <div className="mt-2 text-sm text-gray-500">
+                      {file.user_name} uploaded a file under {file.categories}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
       </div>
     </>
   );

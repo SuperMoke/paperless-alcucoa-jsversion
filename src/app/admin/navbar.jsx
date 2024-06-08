@@ -37,7 +37,13 @@ export default function NavbarComponent({ email }) {
           </Typography>
           <div className="my-2 flex flex-col gap-2 lg:mb-0 lg:mt-0 lg:flex-row lg:items-center lg:gap-6">
             <Link href="/admin/admin_forms">
-              <p className="ml-16">Forms</p>
+              <p className="ml-5">Forms</p>
+            </Link>
+            <Link href="/admin/admin_files">
+              <p className="ml-5">Files</p>
+            </Link>
+            <Link href="/admin/admin_account">
+              <p className="ml-5">Account</p>
             </Link>
             <Button
               placeholder={undefined}
