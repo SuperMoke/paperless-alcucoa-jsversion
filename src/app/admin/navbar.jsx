@@ -36,6 +36,9 @@ export default function NavbarComponent({ email }) {
             Paperless Alcucoa Accreditation System
           </Typography>
           <div className="my-2 flex flex-col gap-2 lg:mb-0 lg:mt-0 lg:flex-row lg:items-center lg:gap-6">
+            <Link href="/admin">
+              <p className="ml-5">Home</p>
+            </Link>
             <Link href="/admin/admin_forms">
               <p className="ml-5">Forms</p>
             </Link>

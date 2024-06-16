@@ -9,6 +9,7 @@ import {
   getDownloadURL,
   deleteObject,
   ref,
+  uploadBytes,
 } from "firebase/storage";
 import {
   addDoc,
@@ -100,7 +101,7 @@ export default function UserHomepage() {
       }
     };
     fetchUserData();
-  }, []);
+  }, [profileUrl]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -267,34 +268,58 @@ export default function UserHomepage() {
   };
 
   const handleUpload2 = async () => {
+    const user = auth.currentUser;
+    const user_email = user.email;
     if (!profilePhoto) return;
     try {
+      setUploading(true);
+      setProgress(0);
       const storageRef = ref(
         storage,
-        `profileImages/${userid}${profilePhoto.name}`
+        `profileImages/${userid}/${profilePhoto.name}`
       );
-      await uploadBytes(storageRef, profilePhoto);
-      const downloadURL = await getDownloadURL(storageRef);
-      const userRef = collection(db, "userdata");
-      const userQuery = query(userRef, where("userID", "==", userid));
-      const userSnapshot = await getDocs(userQuery);
-      if (!userSnapshot.empty) {
-        userSnapshot.forEach(async (doc) => {
-          const userDocRef = doc.ref;
-          try {
-            await updateDoc(userDocRef, {
-              profileUrl: downloadURL,
+      const uploadTask = uploadBytesResumable(storageRef, profilePhoto);
+
+      uploadTask.on(
+        "state_changed",
+        (snapshot) => {
+          const progress =
+            (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          setProgress(progress);
+        },
+        (error) => {
+          console.error("Error uploading image:", error);
+          setUploading(false);
+        },
+        async () => {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          const userRef = collection(db, "userdata");
+          const userQuery = query(userRef, where("email", "==", user_email));
+          const userSnapshot = await getDocs(userQuery);
+
+          if (!userSnapshot.empty) {
+            userSnapshot.forEach(async (doc) => {
+              const userDocRef = doc.ref;
+              try {
+                await updateDoc(userDocRef, {
+                  profileUrl: downloadURL,
+                });
+                console.log("Profile URL updated in Firestore");
+              } catch (error) {
+                console.error("Error updating profile URL:", error);
+              }
             });
-            console.log("Profile URL updated in Firestore");
-          } catch (error) {
-            console.error("Error updating profile URL:", error);
+          } else {
+            console.error("User not found");
           }
-        });
-      } else {
-        console.error("User not found");
-      }
+
+          setUploading(false);
+          setProfilePhoto(null);
+        }
+      );
     } catch (error) {
       console.error("Error uploading image:", error);
+      setUploading(false);
     }
   };
 

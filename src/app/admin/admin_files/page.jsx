@@ -8,6 +8,7 @@ import {
   Option,
   Button,
   Input,
+  Progress,
 } from "@material-tailwind/react";
 import { useEffect, useState } from "react";
 import {
@@ -17,6 +18,7 @@ import {
   query,
   where,
   serverTimestamp,
+  onSnapshot,
 } from "firebase/firestore";
 import {
   ref,
@@ -30,8 +32,8 @@ export default function AdminFiles() {
   const [files, setFiles] = useState([]);
   const [facultyFiles, setFacultyFiles] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState("");
-  const [selectedFaculty, setSelectedFaculty] = useState("");
-  const [facultyOptions, setFacultyOptions] = useState([]); // New state for faculty options
+  const [selectedFaculty, setSelectedFaculty] = useState("All");
+  const [facultyOptions, setFacultyOptions] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
@@ -49,44 +51,31 @@ export default function AdminFiles() {
   ];
 
   useEffect(() => {
-    const fetchFiles = async () => {
+    const fetchFiles = () => {
       const filesRef = collection(db, "filesdata");
-      const snapshot = await getDocs(filesRef);
-      const filesData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+      const unsubscribe = onSnapshot(filesRef, (snapshot) => {
+        const filesData = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
 
-      setFiles(filesData);
+        setFiles(filesData);
+        if (selectedFaculty === "All") {
+          setFacultyFiles(filesData);
+        } else {
+          setFacultyFiles(
+            filesData.filter((file) => file.user_name === selectedFaculty)
+          );
+        }
+      });
 
-      if (selectedFaculty === "All") {
-        setFacultyFiles(filesData);
-      } else {
-        setFacultyFiles(
-          filesData.filter((file) => file.user_name === selectedFaculty)
-        );
-      }
+      return () => unsubscribe();
     };
 
     fetchFiles();
   }, [selectedFaculty]);
 
-  // New useEffect to fetch faculty options based on user roles
-  useEffect(() => {
-    const fetchFacultyOptions = async () => {
-      const q = query(
-        collection(db, "userdata"),
-        where("role", "==", "faculty")
-      );
-      const querySnapshot = await getDocs(q);
-      const faculties = querySnapshot.docs.map((doc) => doc.data().name);
-      setFacultyOptions(faculties);
-    };
-
-    fetchFacultyOptions();
-  }, []);
-
-  const handleFileChange = (event, index) => {
+  const handleFileChange = (event) => {
     const selectedFile = event.target.files[0];
     if (selectedFile) {
       const allowedTypes = [
@@ -99,21 +88,24 @@ export default function AdminFiles() {
           "Unsupported file type. Please select a PDF, DOC, or DOCX file."
         );
       } else {
-        const newFiles = [...files];
-        newFiles[index] = selectedFile;
-        setFiles(newFiles);
+        setFiles([selectedFile]);
         setError("");
       }
     }
   };
 
-  const handleUpload = async (index) => {
-    const file = files[index];
+  const handleUpload = async () => {
+    if (files.length === 0) {
+      setError("No file selected for upload.");
+      return;
+    }
+
+    const file = files[0]; // Since we are setting a single file in the array
     const user = auth.currentUser;
+    if (!file || !user) return;
+
     const user_id = user.uid;
     const user_email = user.email;
-
-    if (!file || !user) return;
 
     const q = query(
       collection(db, "userdata"),
@@ -169,9 +161,10 @@ export default function AdminFiles() {
             categories: selectedCategory,
             timestamp: serverTimestamp(),
           });
+          console.log("File upload successful and metadata added to Firestore");
+          alert("File uploaded successfully!");
           setFiles([]);
           setSelectedCategory("");
-          console.log("File upload successful and metadata added to Firestore");
         } catch (error) {
           setError("There is an error uploading the file");
           setUploading(false);
@@ -191,6 +184,7 @@ export default function AdminFiles() {
 
   return (
     <>
+      {uploading && <Progress value={progress} color="green" className="h-2" />}
       <NavbarComponent />
       <div className="flex min-h-full flex-1 flex-col justify-center items-center py-10 sm:px-6 lg:px-8">
         <Typography variant="h2" className="mb-4 text-center">
@@ -274,13 +268,15 @@ export default function AdminFiles() {
                         {file.name}
                       </div>
                       <div className="text-sm text-gray-500">
-                        {file.timestamp.toDate().toLocaleString(undefined, {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                          hour: "numeric",
-                          minute: "numeric",
-                        })}
+                        {file.timestamp && file.timestamp.toDate
+                          ? file.timestamp.toDate().toLocaleString(undefined, {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                              hour: "numeric",
+                              minute: "numeric",
+                            })
+                          : "N/A"}
                       </div>
                       <Button
                         variant="text"
