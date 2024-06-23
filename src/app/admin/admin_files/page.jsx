@@ -51,6 +51,20 @@ export default function AdminFiles() {
   ];
 
   useEffect(() => {
+    const fetchFacultyNames = async () => {
+      const usersRef = collection(db, "userdata");
+      const q = query(usersRef, where("role", "==", "faculty"));
+      const querySnapshot = await getDocs(q);
+      const facultyNames = querySnapshot.docs
+        .map((doc) => doc.data().name)
+        .filter((name) => name); // Remove any undefined or empty names
+      setFacultyOptions(["All", ...facultyNames]);
+    };
+
+    fetchFacultyNames();
+  }, []);
+
+  useEffect(() => {
     const fetchFiles = () => {
       const filesRef = collection(db, "filesdata");
       const unsubscribe = onSnapshot(filesRef, (snapshot) => {
